@@ -116,7 +116,7 @@
 /* ====== CONFIGURATION : à remplir une fois ====== */
 const CONFIG = {
   clientId: "64b484dd-6a42-4ab5-8977-7b68625ba6a0",   // ID d'application (client) Entra ID
-  tenantId: "df3d8efb-a74f-4133-b453-e1c74398db96"                    // ou l'ID du locataire ADMR 65
+  tenantId: "df3d8efb-a74f-4133-b453-e1c74398db96"                 // ou l'ID du locataire ADMR 65
 };
 /* ================================================ */
 
@@ -275,7 +275,13 @@ async function enregistrer() {
     await chargerDate();
     message(`✔ +${h} h enregistrée(s).`, "ok");
   } catch (e) {
-    message("Échec : " + e.message + (/423|locked/i.test(e.message) ? " (fichier verrouillé, réessaie dans un instant)" : ""), "err");
+    if (/^(409|423)/.test(e.message) || /editing this workbook|locked/i.test(e.message)) {
+      const qui = (e.message.match(/–\s*(.+?) is editing/) || [])[1];
+      message("Le fichier est ouvert dans Excel" + (qui ? " par " + qui : "") +
+        " sans enregistrement automatique. Ferme-le, ou active « Enregistrement automatique » en haut à gauche d'Excel, puis réessaie dans quelques minutes.", "err");
+    } else {
+      message("Échec : " + e.message, "err");
+    }
   } finally { $("btnEnregistrer").disabled = !cible; }
 }
 
