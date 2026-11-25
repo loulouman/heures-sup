@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b6e4f">
+<title>Heures sup</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root { --vert:#0b6e4f; --vert-clair:#e6f2ed; --gris:#6b7280; --rouge:#b42318; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:#f6f7f8; color:#1f2937; }
+  header { background:var(--vert); color:#fff; padding:16px 18px calc(16px) ; padding-top:calc(16px + env(safe-area-inset-top)); display:flex; align-items:center; justify-content:space-between; }
+  header h1 { font-size:1.15rem; margin:0; font-weight:600; }
+  header button { background:none; border:1px solid rgba(255,255,255,.5); color:#fff; border-radius:8px; padding:6px 10px; font-size:.85rem; }
+  main { max-width:520px; margin:0 auto; padding:18px; }
+  .carte { background:#fff; border-radius:14px; padding:18px; box-shadow:0 1px 3px rgba(0,0,0,.08); margin-bottom:16px; }
+  label { display:block; font-weight:600; margin-bottom:8px; }
+  input[type=date], input[type=search], textarea { width:100%; font-size:1.05rem; padding:12px; border:1px solid #d1d5db; border-radius:10px; font-family:inherit; background:#fff; }
+  textarea { min-height:90px; resize:vertical; }
+  .champ { margin-bottom:20px; }
+  .choixDate { display:flex; gap:8px; align-items:stretch; }
+  .fleche { width:48px; font-size:1.6rem; border:1px solid #d1d5db; border-radius:10px; background:#fff; color:var(--vert); }
+  .zoneDate { position:relative; flex:1; border:1px solid #d1d5db; border-radius:10px; padding:12px; font-size:1.1rem; font-weight:600; text-align:center; background:#fff; }
+  .zoneDate input { position:absolute; inset:0; width:100%; height:100%; opacity:0; border:none; padding:0; cursor:pointer; }
+  .zoneDate input::-webkit-calendar-picker-indicator { position:absolute; inset:0; width:100%; height:100%; cursor:pointer; }
+  .puces { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+  .puces button { font-size:1.2rem; font-weight:700; padding:14px 0; border-radius:12px; border:2px solid var(--vert); background:#fff; color:var(--vert); }
+  .puces button.actif { background:var(--vert); color:#fff; }
+  .principal { width:100%; padding:15px; font-size:1.1rem; font-weight:600; border:none; border-radius:12px; background:var(--vert); color:#fff; }
+  .principal:disabled { opacity:.5; }
+  .secondaire { background:none; border:none; color:var(--vert); font-weight:600; padding:8px 0; font-size:.95rem; }
+  .info { color:var(--gris); font-size:.9rem; margin-top:6px; min-height:1.2em; }
+  .message { padding:12px; border-radius:10px; margin-top:14px; display:none; }
+  .message.ok { display:block; background:var(--vert-clair); color:var(--vert); }
+  .message.err { display:block; background:#fdecea; color:var(--rouge); }
+  .fichier { font-size:.85rem; color:var(--gris); word-break:break-word; }
+  ul.liste { list-style:none; margin:10px 0 0; padding:0; }
+  ul.liste li { padding:12px 6px; border-bottom:1px solid #eee; display:flex; gap:10px; align-items:center; cursor:pointer; }
+  ul.liste li small { color:var(--gris); display:block; }
+  .chemin { font-size:.85rem; color:var(--gris); margin:8px 0; }
+  .cache { display:none !important; }
+  .solde { display:flex; justify-content:space-between; font-size:.95rem; }
+  .solde b { color:var(--vert); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Heures sup</h1>
+  <button id="btnDeco" class="cache">Déconnexion</button>
+</header>
+<main>
+
+  <!-- Écran connexion -->
+  <section id="ecranConnexion" class="carte cache">
+    <p>Connecte-toi avec ton compte Microsoft professionnel pour accéder à ta feuille de temps sur OneDrive.</p>
+    <button id="btnConnexion" class="principal">Se connecter</button>
+  </section>
+
+  <!-- Écran choix du fichier -->
+  <section id="ecranFichier" class="carte cache">
+    <label for="recherche">Choisis ta feuille de temps</label>
+    <input type="search" id="recherche" value="Feuille mensuelle" placeholder="Nom du fichier">
+    <div style="display:flex;gap:16px">
+      <button class="secondaire" id="btnRechercher">Rechercher</button>
+      <button class="secondaire" id="btnParcourir">Parcourir mon OneDrive</button>
+    </div>
+    <div class="chemin" id="chemin"></div>
+    <ul class="liste" id="listeFichiers"></ul>
+    <div class="info" id="infoFichier"></div>
+  </section>
+
+  <!-- Écran saisie -->
+  <section id="ecranSaisie" class="cache">
+    <div class="carte">
+      <div class="champ">
+        <label for="date">Date</label>
+        <div class="choixDate">
+          <button type="button" class="fleche" id="jourPrec" aria-label="Jour précédent">‹</button>
+          <div class="zoneDate">
+            <span id="dateFr"></span>
+            <input type="date" id="date" aria-label="Choisir la date">
+          </div>
+          <button type="button" class="fleche" id="jourSuiv" aria-label="Jour suivant">›</button>
+        </div>
+        <div class="info" id="infoLigne"></div>
+      </div>
+      <div class="champ">
+        <label>Heures supplémentaires</label>
+        <div class="puces" id="puces">
+          <button data-h="1">+1</button>
+          <button data-h="2">+2</button>
+          <button data-h="3">+3</button>
+          <button data-h="4">+4</button>
+        </div>
+      </div>
+      <div class="champ">
+        <label for="obs">Observation</label>
+        <textarea id="obs" placeholder="Pourquoi ces heures sup ?"></textarea>
+      </div>
+      <button class="principal" id="btnEnregistrer" disabled>Enregistrer</button>
+      <div class="message" id="message"></div>
+    </div>
+    <div class="carte">
+      <div class="solde"><span>Solde d'heures fin de mois</span><b id="solde">–</b></div>
+    </div>
+    <div class="fichier">Fichier : <span id="nomFichier"></span> — <button class="secondaire" id="btnChanger">changer</button></div>
+  </section>
+
+</main>
+
+<script src="msal-browser.min.js"></script>
+<script>
+/* ====== CONFIGURATION : à remplir une fois ====== */
+const CONFIG = {
+  clientId: "COLLER-ICI-L-ID-D-APPLICATION",   // ID d'application (client) Entra ID
+  tenantId: "organizations"                    // ou l'ID du locataire ADMR 65
+};
+/* ================================================ */
+
+const SCOPES = ["Files.ReadWrite", "User.Read"];
+const GRAPH = "https://graph.microsoft.com/v1.0";
+const MOIS = ["janvier","fevrier","mars","avril","mai","juin","juillet","aout","septembre","octobre","novembre","decembre"];
+const $ = id => document.getElementById(id);
+
+const msalApp = new msal.PublicClientApplication({
+  auth: {
+    clientId: CONFIG.clientId,
+    authority: "https://login.microsoftonline.com/" + CONFIG.tenantId,
+    redirectUri: location.origin + location.pathname
+  },
+  cache: { cacheLocation: "localStorage" }
+});
+
+let compte = null;
+let fichier = JSON.parse(localStorage.getItem("fichier") || "null"); // {driveId, id, name}
+let feuilles = null;   // cache des noms d'onglets
+let cible = null;      // {feuille, ligne, ligneSolde}
+let heures = null;
+
+function afficher(ecran) {
+  for (const e of ["ecranConnexion","ecranFichier","ecranSaisie"]) $(e).classList.toggle("cache", e !== ecran);
+  $("btnDeco").classList.toggle("cache", !compte);
+}
+function message(txt, type) { const m = $("message"); m.textContent = txt; m.className = "message " + (type || ""); }
+const sansAccent = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+
+async function jeton() {
+  try {
+    return (await msalApp.acquireTokenSilent({ scopes: SCOPES, account: compte })).accessToken;
+  } catch (e) {
+    await msalApp.acquireTokenRedirect({ scopes: SCOPES, account: compte });
+  }
+}
+
+async function graph(chemin, options = {}) {
+  const r = await fetch(GRAPH + chemin, {
+    ...options,
+    headers: { Authorization: "Bearer " + await jeton(), "Content-Type": "application/json", ...(options.headers || {}) }
+  });
+  if (!r.ok) {
+    let detail = "";
+    try { detail = (await r.json()).error.message; } catch {}
+    throw new Error(r.status + (detail ? " – " + detail : ""));
+  }
+  return r.status === 204 ? null : r.json();
+}
+
+/* ---------- Choix du fichier ---------- */
+function listerFichiers(items, dossierCourant) {
+  const ul = $("listeFichiers"); ul.innerHTML = "";
+  for (const it of items) {
+    const estDossier = !!it.folder;
+    const estExcel = /\.xlsx$/i.test(it.name);
+    if (!estDossier && !estExcel) continue;
+    const li = document.createElement("li");
+    const chemin = it.parentReference && it.parentReference.path ? it.parentReference.path.replace(/^.*root:?/, "") : "";
+    li.innerHTML = `<span>${estDossier ? "📁" : "📗"}</span><span>${it.name}${!dossierCourant && chemin ? `<small>${chemin}</small>` : ""}</span>`;
+    li.onclick = () => estDossier ? parcourir(it.id, (dossierCourant || "") + "/" + it.name) : choisirFichier(it);
+    ul.appendChild(li);
+  }
+  if (!ul.children.length) ul.innerHTML = "<li>Aucun fichier Excel trouvé.</li>";
+}
+
+async function rechercher() {
+  $("chemin").textContent = ""; $("infoFichier").textContent = "Recherche…";
+  try {
+    const q = encodeURIComponent($("recherche").value.replace(/'/g, "''"));
+    const res = await graph(`/me/drive/root/search(q='${q}')?$top=50`);
+    listerFichiers(res.value, null);
+    $("infoFichier").textContent = "";
+  } catch (e) { $("infoFichier").textContent = "Erreur : " + e.message; }
+}
+
+async function parcourir(idDossier, libelle) {
+  $("chemin").innerHTML = "";
+  const racine = document.createElement("button");
+  racine.className = "secondaire"; racine.textContent = "OneDrive";
+  racine.onclick = () => parcourir(null, "");
+  $("chemin").append(racine, document.createTextNode(libelle || ""));
+  $("infoFichier").textContent = "Chargement…";
+  try {
+    const url = idDossier ? `/me/drive/items/${idDossier}/children` : "/me/drive/root/children";
+    const res = await graph(url + "?$top=200&$orderby=name");
+    listerFichiers(res.value, libelle || "/");
+    $("infoFichier").textContent = "";
+  } catch (e) { $("infoFichier").textContent = "Erreur : " + e.message; }
+}
+
+function choisirFichier(it) {
+  fichier = { driveId: it.parentReference.driveId, id: it.id, name: it.name };
+  localStorage.setItem("fichier", JSON.stringify(fichier));
+  feuilles = null;
+  ouvrirSaisie();
+}
+
+/* ---------- Saisie ---------- */
+const base = () => `/drives/${fichier.driveId}/items/${fichier.id}/workbook`;
+const serialExcel = d => Math.round((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(1899, 11, 30)) / 86400000);
+const nomFeuille = f => encodeURIComponent(f.replace(/'/g, "''"));
+
+async function trouverFeuille(moisIndex) {
+  if (!feuilles) feuilles = (await graph(base() + "/worksheets?$select=name")).value.map(w => w.name);
+  return feuilles.find(n => sansAccent(n) === MOIS[moisIndex]);
+}
+
+async function chargerDate() {
+  cible = null; $("btnEnregistrer").disabled = true; message("");
+  const v = $("date").value; if (!v) return;
+  const [a, m, j] = v.split("-").map(Number);
+  const d = new Date(a, m - 1, j);
+  $("dateFr").textContent = d.toLocaleDateString("fr-FR", { weekday: "short" }) + " " +
+    String(j).padStart(2, "0") + "/" + String(m).padStart(2, "0") + "/" + a;
+  $("infoLigne").textContent = "Recherche de la ligne…";
+  try {
+    const feuille = await trouverFeuille(d.getMonth());
+    if (!feuille) throw new Error(`onglet « ${MOIS[d.getMonth()]} » introuvable`);
+    const r = await graph(`${base()}/worksheets('${nomFeuille(feuille)}')/range(address='A1:G60')?$select=values`);
+    const lignes = r.values;
+    const serial = serialExcel(d);
+    const idx = lignes.findIndex(l => l[0] === serial);
+    if (idx < 0) throw new Error(`le ${d.toLocaleDateString("fr-FR")} n'est pas dans l'onglet « ${feuille} »`);
+    const idxSolde = lignes.findIndex(l => typeof l[0] === "string" && sansAccent(l[0]).startsWith("solde fin"));
+    cible = { feuille, ligne: idx + 1 };
+    const f = lignes[idx][5], g = lignes[idx][6];
+    heures = (typeof f === "number" && f >= 1 && f <= 4) ? f : null;
+    majPuces();
+    $("obs").value = g || "";
+    $("solde").textContent = idxSolde >= 0 ? formatH(lignes[idxSolde][5]) : "–";
+    $("infoLigne").textContent = `Onglet ${feuille}, ligne ${idx + 1}` + (f !== "" && f !== null ? ` — déjà saisi : ${f > 0 ? "+" : ""}${f} h` : "");
+    $("btnEnregistrer").disabled = false;
+  } catch (e) {
+    $("infoLigne").textContent = "⚠ " + e.message;
+  }
+}
+
+const formatH = v => (typeof v === "number") ? (v > 0 ? "+" : "") + (Math.round(v * 100) / 100) + " h" : "–";
+
+function majPuces() {
+  for (const b of $("puces").children) b.classList.toggle("actif", Number(b.dataset.h) === heures);
+}
+
+async function enregistrer() {
+  if (!cible) return;
+  if (heures === null) { message("Choisis un nombre d'heures (+1 à +4).", "err"); return; }
+  $("btnEnregistrer").disabled = true; message("Enregistrement…");
+  const h = heures;
+  try {
+    await graph(`${base()}/worksheets('${nomFeuille(cible.feuille)}')/range(address='F${cible.ligne}:G${cible.ligne}')`, {
+      method: "PATCH",
+      body: JSON.stringify({ values: [[heures, $("obs").value.trim()]] })
+    });
+    await chargerDate();
+    message(`✔ +${h} h enregistrée(s).`, "ok");
+  } catch (e) {
+    message("Échec : " + e.message + (/423|locked/i.test(e.message) ? " (fichier verrouillé, réessaie dans un instant)" : ""), "err");
+  } finally { $("btnEnregistrer").disabled = !cible; }
+}
+
+function ouvrirSaisie() {
+  $("nomFichier").textContent = fichier.name;
+  const auj = new Date();
+  $("date").value = `${auj.getFullYear()}-${String(auj.getMonth() + 1).padStart(2, "0")}-${String(auj.getDate()).padStart(2, "0")}`;
+  afficher("ecranSaisie");
+  chargerDate();
+}
+
+/* ---------- Démarrage ---------- */
+$("btnConnexion").onclick = () => msalApp.loginRedirect({ scopes: SCOPES });
+$("btnDeco").onclick = () => { localStorage.removeItem("fichier"); msalApp.logoutRedirect({ account: compte }); };
+$("btnRechercher").onclick = rechercher;
+$("recherche").onkeydown = e => { if (e.key === "Enter") rechercher(); };
+$("btnParcourir").onclick = () => parcourir(null, "");
+$("btnChanger").onclick = () => { afficher("ecranFichier"); rechercher(); };
+$("date").onchange = chargerDate;
+function decaler(n) {
+  const [a, m, j] = $("date").value.split("-").map(Number);
+  const d = new Date(a, m - 1, j + n);
+  $("date").value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  chargerDate();
+}
+$("jourPrec").onclick = () => decaler(-1);
+$("jourSuiv").onclick = () => decaler(1);
+$("btnEnregistrer").onclick = enregistrer;
+for (const b of $("puces").children) b.onclick = () => { heures = Number(b.dataset.h); majPuces(); };
+
+(async () => {
+  await msalApp.initialize();
+  const res = await msalApp.handleRedirectPromise().catch(e => { alert("Connexion : " + e.message); return null; });
+  compte = (res && res.account) || msalApp.getAllAccounts()[0] || null;
+  if (!compte) return afficher("ecranConnexion");
+  msalApp.setActiveAccount(compte);
+  if (fichier) ouvrirSaisie(); else { afficher("ecranFichier"); rechercher(); }
+})();
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+</script>
+</body>
+</html>
